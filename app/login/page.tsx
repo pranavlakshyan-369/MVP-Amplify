@@ -3,9 +3,11 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
    const supabase = createClient();
+   const router = useRouter();
 
    const [signedInEmail, setSignedInEmail] = useState("");
   const [isSignUp, setIsSignUp] = useState(true);
@@ -42,7 +44,8 @@ export default function LoginPage() {
 if (error) throw error;
 
 setSignedInEmail(data.user.email ?? "");
-setMessage("Signed in successfully!");
+router.push("/dashboard");
+router.refresh();
       }
     } catch (error) {
       setMessage(
