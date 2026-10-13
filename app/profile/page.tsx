@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase-browser";
 
 type Profile = {
   name: string;
@@ -21,61 +23,136 @@ const emptyProfile: Profile = {
   projects: "",
 };
 
-const storageKey = "amplify-demo-profile";
-
 export default function ProfilePage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile>(emptyProfile);
+  
   const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
+    let active = true;
 
-      if (saved) {
-        const parsed: unknown = JSON.parse(saved);
+    async function loadProfile() {
+      const supabase = createClient();
 
-        if (parsed && typeof parsed === "object") {
-          setProfile({ ...emptyProfile, ...parsed } as Profile);
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) throw authError;
+
+        if (!user) {
+          router.replace("/login");
+          return;
         }
+
+        if (!active) return;
+        
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data && active) {
+          setProfile({
+            name: data.full_name ?? "",
+            headline: data.headline ?? "",
+            location: data.location ?? "",
+            skills: Array.isArray(data.skills)
+              ? data.skills.join(", ")
+              : "",
+            experience: data.experience ?? "",
+            projects: data.projects ?? "",
+          });
+        }
+      } catch (error) {
+        if (active) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Couldn't load your profile."
+          );
+        }
+      } finally {
+        if (active) setLoaded(true);
       }
-    } catch {
-      setMessage("We couldn't load the saved demo profile.");
-    } finally {
-      setLoaded(true);
     }
-  }, []);
+
+    void loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   function updateField(field: keyof Profile, value: string) {
     setProfile((current) => ({ ...current, [field]: value }));
     setMessage("");
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSaving(true);
+    setMessage("");
 
     try {
-      localStorage.setItem(storageKey, JSON.stringify(profile));
-      setMessage("Your demo profile has been saved in this browser.");
-    } catch {
-      setMessage("We couldn't save your profile. Please check browser storage.");
-    }
-  }
+      const supabase = createClient();
 
-  function clearProfile() {
-    try {
-      localStorage.removeItem(storageKey);
-      setProfile(emptyProfile);
-      setMessage("Your saved demo profile has been cleared.");
-    } catch {
-      setMessage("We couldn't clear the saved profile.");
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+     if (!user) {
+  throw new Error("You're not signed in. Please sign in and try again.");
+}
+
+      const skills = profile.skills
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+
+      const { error } = await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          full_name: profile.name.trim(),
+          headline: profile.headline.trim(),
+          location: profile.location.trim(),
+          skills,
+          experience: profile.experience.trim(),
+          projects: profile.projects.trim(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+
+      if (error) throw error;
+
+      setMessage("Your profile has been saved to Amplify.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Couldn't save your profile. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
   if (!loaded) {
     return (
       <main className="min-h-screen bg-[#f8f7f4] p-8 text-[#17221d]">
-        Loading your demo profile...
+        Loading your profile...
       </main>
     );
   }
@@ -193,28 +270,25 @@ export default function ProfilePage() {
 
           <button
             type="submit"
-            className="w-full rounded-full bg-emerald-800 px-6 py-4 font-medium text-white transition hover:bg-emerald-900"
+            disabled={saving}
+            className="w-full rounded-full bg-emerald-800 px-6 py-4 font-medium text-white transition hover:bg-emerald-900 disabled:opacity-60"
           >
-            Save demo profile
+            {saving ? "Saving..." : "Save profile"}
           </button>
 
           {message && (
-            <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
+            <p
+              role="status"
+              className="break-words rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"
+            >
               {message}
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={clearProfile}
-            className="w-full rounded-full border border-gray-300 px-6 py-3 text-sm font-medium hover:bg-gray-50"
-          >
-            Clear saved demo profile
-          </button>
-
           <p className="text-sm leading-6 text-gray-500">
-            Prototype only: this profile is saved in this browser, not in a
-            secure account or cloud database. Use sample information while testing.
+            Your profile is saved to your Amplify account. Only authenticated
+            users who satisfy the database's access policies can read or change
+            their own profile.
           </p>
         </form>
       </div>
