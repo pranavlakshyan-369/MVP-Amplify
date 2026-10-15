@@ -31,6 +31,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  const [discoverable, setDiscoverable] = useState(false);
+
   useEffect(() => {
     let active = true;
 

@@ -1,7 +1,11 @@
+
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase-browser";
+
 
 const candidates = [
   {
@@ -30,10 +34,134 @@ const candidates = [
   },
 ];
 
+type Candidate = {
+  id: string;
+  full_name: string;
+  headline: string;
+  skills: string[];
+  experience: string;
+  projects: string;
+};
+
 export default function RecruiterPage() {
+    
+  const router = useRouter();
+  const [accessChecking, setAccessChecking] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  
+
+
+const [realCandidates, setRealCandidates] = useState<Candidate[]>([]);
+const [candidatesLoading, setCandidatesLoading] = useState(true);
+const [candidatesError, setCandidatesError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkRecruiterAccess() {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (!active) return;
+
+      if (userError || !user) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (profileError || profile?.role !== "recruiter") {
+        setAccessDenied(true);
+        setAccessChecking(false);
+        return;
+      }
+
+      setAccessChecking(false);
+    }
+
+    void checkRecruiterAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  
+useEffect(() => {
+  let active = true;
+
+  async function loadCandidates() {
+    setCandidatesLoading(true);
+    setCandidatesError("");
+
+    const supabase = createClient();
+
+    const { data, error } = await supabase.rpc(
+      "find_discoverable_candidates"
+    );
+
+    if (!active) return;
+
+    if (error) {
+      setCandidatesError(error.message);
+      setRealCandidates([]);
+    } else {
+      setRealCandidates((data ?? []) as Candidate[]);
+    }
+
+    setCandidatesLoading(false);
+  }
+
+  void loadCandidates();
+
+  return () => {
+    active = false;
+  };
+}, []);
+
+
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [searched, setSearched] = useState(false);
+
+  
+  if (accessChecking) {
+    return (
+      <main className="min-h-screen bg-[#f8f7f4] p-8 text-[#17221d]">
+        Checking recruiter access...
+      </main>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <main className="min-h-screen bg-[#f8f7f4] p-8 text-[#17221d]">
+        <h1 className="text-2xl font-semibold">Recruiter access required</h1>
+        <p className="mt-3 text-gray-600">
+          Your account is not approved for the recruiter workspace.
+        </p>
+        <Link
+          href="/dashboard"
+          className="mt-5 inline-block rounded-full bg-emerald-800 px-5 py-3 text-white"
+        >
+          Return to dashboard
+        </Link>
+      </main>
+    );
+  }
+
 
   const matchingCandidates = candidates.filter((candidate) => {
     const searchText = `${jobTitle} ${jobDescription}`.toLowerCase();
@@ -134,13 +262,40 @@ export default function RecruiterPage() {
         <section className="mt-12">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-semibold">
-                {searched ? "Candidate results" : "Sample candidates"}
-              </h2>
+              <h2>{searched ? "Candidate results" : "Discoverable candidates"}</h2>
+
+              {candidatesLoading && (
+  <p className="mt-4 text-sm text-gray-500">
+    Loading candidate profiles...
+  </p>
+)}
+
+{!candidatesLoading && candidatesError && (
+  <p className="mt-4 text-sm text-red-600">
+    Could not load candidates: {candidatesError}
+  </p>
+)}
+
+{!candidatesLoading &&
+  !candidatesError &&
+  realCandidates.length === 0 && (
+    <p className="mt-4 text-sm text-gray-500">
+      No candidates have chosen to be discoverable yet.
+    </p>
+  )}
 
               <p className="mt-2 text-gray-600">
                 {searched
-                  ? `${matchingCandidates.length} sample candidate(s) matched your entered skills.`
+                  ? `${realCandidates.filter((candidate) => {
+  const searchText = `${jobTitle} ${jobDescription}`.toLowerCase();
+
+  return (
+    searchText.trim() !== "" &&
+    candidate.skills.some((skill) =>
+      searchText.includes(skill.toLowerCase())
+    )
+  );
+}).length} candidate(s) matched your entered skills.`
                   : "Preview how candidate profiles will appear to recruiters."}
               </p>
             </div>
@@ -151,17 +306,31 @@ export default function RecruiterPage() {
           </div>
 
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            {(searched ? matchingCandidates : candidates).map((candidate) => (
+           
+{(searched
+  ? realCandidates.filter((candidate) => {
+      const searchText = `${jobTitle} ${jobDescription}`.toLowerCase();
+
+      return (
+        searchText.trim() !== "" &&
+        candidate.skills.some((skill) =>
+          searchText.includes(skill.toLowerCase())
+        )
+      );
+    })
+  : realCandidates
+).map((candidate) => (
+
               <article
-                key={candidate.name}
+                key={candidate.id}
                 className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-xl font-semibold">{candidate.name}</h3>
+                    <h3 className="text-xl font-semibold">{candidate.full_name}</h3>
                     <p className="mt-1 text-gray-600">{candidate.headline}</p>
                     <p className="mt-1 text-sm text-gray-500">
-                      {candidate.location} · {candidate.experience} experience
+                    
                     </p>
                   </div>
 
@@ -181,12 +350,14 @@ export default function RecruiterPage() {
                   ))}
                 </div>
 
-                <div className="mt-5 rounded-2xl bg-[#f8f7f4] p-4">
-                  <p className="text-sm font-semibold">Project evidence</p>
-                  <p className="mt-2 text-sm leading-6 text-gray-600">
-                    {candidate.evidence}
-                  </p>
-                </div>
+                
+<div className="mt-5 rounded-2xl bg-[#f8f7f4] p-4">
+  <p className="text-sm font-semibold">Project evidence</p>
+  <p className="mt-2 text-sm leading-6 text-gray-600">
+    {candidate.projects || "No project details provided yet."}
+  </p>
+</div>
+
               </article>
             ))}
           </div>
