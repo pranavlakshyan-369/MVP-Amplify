@@ -112,6 +112,8 @@ useEffect(() => {
       "find_discoverable_candidates"
     );
 
+    
+
     if (!active) return;
 
     if (error) {

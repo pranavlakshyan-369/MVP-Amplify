@@ -74,6 +74,9 @@ export default function ProfilePage() {
             experience: data.experience ?? "",
             projects: data.projects ?? "",
           });
+
+          setDiscoverable(data.discoverable ?? false);
+
         }
       } catch (error) {
         if (active) {
@@ -132,6 +135,7 @@ export default function ProfilePage() {
           skills,
           experience: profile.experience.trim(),
           projects: profile.projects.trim(),
+          discoverable: discoverable,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" }
@@ -269,6 +273,35 @@ export default function ProfilePage() {
               className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-emerald-700"
             />
           </div>
+
+          
+          <div className="rounded-xl border border-gray-200 p-4">
+            <label
+              htmlFor="discoverable"
+              className="flex items-start gap-3"
+            >
+              <input
+                id="discoverable"
+                type="checkbox"
+                checked={discoverable}
+                onChange={(event) =>
+                  setDiscoverable(event.target.checked)
+                }
+                className="mt-1 h-4 w-4 accent-emerald-800"
+              />
+              <span>
+                <span className="block font-medium">
+                  Allow recruiters to discover my profile.
+                </span>
+                <span className="mt-1 block text-sm leading-6 text-gray-600">
+                  When enabled, selected profile information, such as your
+                  headline, location, skills, experience, and projects, can be
+                  shown to authorized recruiters.
+                </span>
+              </span>
+            </label>
+          </div>
+
 
           <button
             type="submit"
