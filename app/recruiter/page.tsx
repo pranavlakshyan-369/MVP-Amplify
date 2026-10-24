@@ -165,16 +165,34 @@ useEffect(() => {
   }
 
 
-  const matchingCandidates = candidates.filter((candidate) => {
-    const searchText = `${jobTitle} ${jobDescription}`.toLowerCase();
+  
 
-    return (
-      searchText.trim() !== "" &&
-      candidate.skills.some((skill) =>
-        searchText.includes(skill.toLowerCase())
-      )
-    );
-  });
+const matchingCandidates = realCandidates.filter((candidate) => {
+  const searchText = `${jobTitle} ${jobDescription}`
+    .toLowerCase()
+    .trim();
+
+  if (!searchText) return false;
+
+  const candidateText = [
+    candidate.full_name,
+    candidate.headline,
+    ...(candidate.skills ?? []),
+    candidate.experience,
+    candidate.projects,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const searchTerms = searchText
+    .split(/\s+/)
+    .filter((term) => term.length > 1);
+
+  return searchTerms.some((term) => candidateText.includes(term));
+});
+
+
 
   return (
     <main className="min-h-screen bg-[#f8f7f4] px-6 py-10 text-[#17221d]">
