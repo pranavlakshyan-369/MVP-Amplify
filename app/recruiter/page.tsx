@@ -7,32 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 
 
-const candidates = [
-  {
-    name: "Aarav Sharma",
-    headline: "Full-Stack Developer",
-    location: "Kathmandu, Nepal",
-    skills: ["React", "Next.js", "TypeScript", "Node.js"],
-    evidence: "Built and deployed a full-stack project using Next.js and PostgreSQL.",
-    experience: "3 years",
-  },
-  {
-    name: "Maya Thapa",
-    headline: "Frontend Engineer",
-    location: "Pokhara, Nepal",
-    skills: ["React", "TypeScript", "Tailwind CSS", "Accessibility"],
-    evidence: "Created responsive interfaces and improved accessibility in a portfolio project.",
-    experience: "2 years",
-  },
-  {
-    name: "Sujan Karki",
-    headline: "Backend Developer",
-    location: "Lalitpur, Nepal",
-    skills: ["Node.js", "PostgreSQL", "Python", "APIs"],
-    evidence: "Designed REST APIs and a relational database for a booking application.",
-    experience: "4 years",
-  },
-];
+
 
 type Candidate = {
   id: string;
@@ -106,24 +81,35 @@ useEffect(() => {
     setCandidatesLoading(true);
     setCandidatesError("");
 
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    const { data, error } = await supabase.rpc(
-      "find_discoverable_candidates"
-    );
+      const { data, error } = await supabase.rpc(
+        "find_discoverable_candidates"
+      );
 
-    
+      if (!active) return;
 
-    if (!active) return;
+      if (error) {
+        setCandidatesError(error.message);
+        setRealCandidates([]);
+      } else {
+        setRealCandidates((data ?? []) as Candidate[]);
+      }
+    } catch (err) {
+      if (!active) return;
 
-    if (error) {
-      setCandidatesError(error.message);
       setRealCandidates([]);
-    } else {
-      setRealCandidates((data ?? []) as Candidate[]);
+      setCandidatesError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred while fetching candidates."
+      );
+    } finally {
+      if (active) {
+        setCandidatesLoading(false);
+      }
     }
-
-    setCandidatesLoading(false);
   }
 
   void loadCandidates();
@@ -137,6 +123,36 @@ useEffect(() => {
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [searched, setSearched] = useState(false);
+  const [submittedJobTitle, setSubmittedJobTitle] = useState("");
+  const [submittedJobDescription, setSubmittedJobDescription] = useState("");
+
+  
+const searchText = `${submittedJobTitle} ${submittedJobDescription}`
+  .toLowerCase()
+  .trim();
+
+const matchingCandidates = searchText
+  ? realCandidates.filter((candidate) => {
+      const candidateText = [
+        candidate.full_name,
+        candidate.headline,
+        ...candidate.skills,
+        candidate.experience,
+        candidate.projects,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const searchTerms = searchText
+        .split(/\s+/)
+        .filter((term) => term.length > 1);
+
+      return searchTerms.some((term) => candidateText.includes(term));
+    })
+  : [];
+
+
 
   
   if (accessChecking) {
@@ -167,30 +183,7 @@ useEffect(() => {
 
   
 
-const matchingCandidates = realCandidates.filter((candidate) => {
-  const searchText = `${jobTitle} ${jobDescription}`
-    .toLowerCase()
-    .trim();
 
-  if (!searchText) return false;
-
-  const candidateText = [
-    candidate.full_name,
-    candidate.headline,
-    ...(candidate.skills ?? []),
-    candidate.experience,
-    candidate.projects,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  const searchTerms = searchText
-    .split(/\s+/)
-    .filter((term) => term.length > 1);
-
-  return searchTerms.some((term) => candidateText.includes(term));
-});
 
 
 
@@ -232,6 +225,9 @@ const matchingCandidates = realCandidates.filter((candidate) => {
             className="mt-6 space-y-5"
             onSubmit={(event) => {
               event.preventDefault();
+
+              setSubmittedJobTitle(jobTitle);
+              setSubmittedJobDescription(jobDescription);
               setSearched(true);
             }}
           >
@@ -304,20 +300,13 @@ const matchingCandidates = realCandidates.filter((candidate) => {
     </p>
   )}
 
-              <p className="mt-2 text-gray-600">
-                {searched
-                  ? `${realCandidates.filter((candidate) => {
-  const searchText = `${jobTitle} ${jobDescription}`.toLowerCase();
+              
+<p className="mt-2 text-gray-600">
+  {searched
+    ? `${matchingCandidates.length} candidate(s) matched your search.`
+    : "Enter a job title or description to find matching candidates."}
+</p>
 
-  return (
-    searchText.trim() !== "" &&
-    candidate.skills.some((skill) =>
-      searchText.includes(skill.toLowerCase())
-    )
-  );
-}).length} candidate(s) matched your entered skills.`
-                  : "Preview how candidate profiles will appear to recruiters."}
-              </p>
             </div>
 
             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">
@@ -328,16 +317,7 @@ const matchingCandidates = realCandidates.filter((candidate) => {
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
            
 {(searched
-  ? realCandidates.filter((candidate) => {
-      const searchText = `${jobTitle} ${jobDescription}`.toLowerCase();
-
-      return (
-        searchText.trim() !== "" &&
-        candidate.skills.some((skill) =>
-          searchText.includes(skill.toLowerCase())
-        )
-      );
-    })
+  ? matchingCandidates
   : realCandidates
 ).map((candidate) => (
 
@@ -384,7 +364,7 @@ const matchingCandidates = realCandidates.filter((candidate) => {
 
           {searched && matchingCandidates.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed border-gray-300 p-8 text-center">
-              <h3 className="font-semibold">No sample matches found</h3>
+              <h3 className="font-semibold">No matching candidates found</h3>
               <p className="mt-2 text-sm text-gray-600">
                 Try skills such as React, TypeScript, Node.js, Python, or PostgreSQL.
               </p>
