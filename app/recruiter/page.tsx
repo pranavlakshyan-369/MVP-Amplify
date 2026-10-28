@@ -226,8 +226,11 @@ const matchingCandidates = searchText
             onSubmit={(event) => {
               event.preventDefault();
 
-              setSubmittedJobTitle(jobTitle);
-              setSubmittedJobDescription(jobDescription);
+              const title = jobTitle.trim();
+              const description = jobDescription.trim();
+
+              setSubmittedJobTitle(title);
+              setSubmittedJobDescription(description);
               setSearched(true);
             }}
           >
@@ -351,6 +354,13 @@ const matchingCandidates = searchText
                 </div>
 
                 
+<div className="mt-5">
+  <p className="text-sm font-semibold">Experience</p>
+  <p className="mt-2 text-sm leading-6 text-gray-600">
+    {candidate.experience || "No experience details provided yet."}
+  </p>
+</div>
+
 <div className="mt-5 rounded-2xl bg-[#f8f7f4] p-4">
   <p className="text-sm font-semibold">Project evidence</p>
   <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -364,9 +374,15 @@ const matchingCandidates = searchText
 
           {searched && matchingCandidates.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed border-gray-300 p-8 text-center">
-              <h3 className="font-semibold">No matching candidates found</h3>
+              <h3 className="font-semibold">
+                {searchText
+                  ? "No matching candidates found"
+                  : "Enter a job title or description"}
+              </h3>
               <p className="mt-2 text-sm text-gray-600">
-                Try skills such as React, TypeScript, Node.js, Python, or PostgreSQL.
+                {searchText
+                  ? "Try describing the required skills or experience in your job description."
+                  : "Provide a job title or job description before searching for candidates."}
               </p>
             </div>
           )}
