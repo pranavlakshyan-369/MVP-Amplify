@@ -18,6 +18,79 @@ type Candidate = {
   projects: string;
 };
 
+
+type CandidateMatchDetails = {
+  matchingSkillTerms: string[];
+  matchingHeadlineTerms: string[];
+  matchingExperienceTerms: string[];
+  matchingProjectTerms: string[];
+  relevanceScore: number;
+  matches: boolean;
+};
+
+function normalizeMatchText(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getCandidateMatchDetails(
+  candidate: Candidate,
+  rawSearchText: string
+): CandidateMatchDetails {
+  const searchTerms = normalizeMatchText(rawSearchText)
+    .split(/\s+/)
+    .filter((term) => term.length > 1);
+
+  const candidateSkills = normalizeMatchText(
+    (candidate.skills ?? [])
+      .filter(
+        (skill): skill is string =>
+          typeof skill === "string" && skill.trim().length > 0
+      )
+      .join(" ")
+  );
+
+  const candidateHeadline = normalizeMatchText(candidate.headline);
+  const candidateExperience = normalizeMatchText(candidate.experience);
+  const candidateProjects = normalizeMatchText(candidate.projects);
+
+  const matchingSkillTerms = searchTerms.filter((term) =>
+    candidateSkills.includes(term)
+  );
+
+  const matchingHeadlineTerms = searchTerms.filter((term) =>
+    candidateHeadline.includes(term)
+  );
+
+  const matchingExperienceTerms = searchTerms.filter((term) =>
+    candidateExperience.includes(term)
+  );
+
+  const matchingProjectTerms = searchTerms.filter((term) =>
+    candidateProjects.includes(term)
+  );
+
+  const relevanceScore =
+    matchingSkillTerms.length * 4 +
+    matchingHeadlineTerms.length * 3 +
+    matchingExperienceTerms.length * 2 +
+    matchingProjectTerms.length;
+
+  return {
+    matchingSkillTerms,
+    matchingHeadlineTerms,
+    matchingExperienceTerms,
+    matchingProjectTerms,
+    relevanceScore,
+    matches: searchTerms.length > 0 && relevanceScore > 0,
+  };
+}
+
+
 export default function RecruiterPage() {
     
   const router = useRouter();
@@ -137,87 +210,9 @@ const searchText = `${submittedJobTitle} ${submittedJobDescription}`
 
 
 const matchingCandidates = searchText
-  ? realCandidates.filter((candidate) => {
-      const candidateText = [
-  candidate.full_name,
-  candidate.headline,
-  ...(candidate.skills ?? []),
-  candidate.experience,
-  candidate.projects,
-]
-  .filter((value) => typeof value === "string" && value.trim().length > 0)
-  .join(" ")
-  .toLowerCase()
-  .replace(/[^\w\s]/g, " ")
-  .replace(/_/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-  const candidateSkills = (candidate.skills ?? [])
-  .filter(
-    (skill): skill is string =>
-      typeof skill === "string" && skill.trim().length > 0
-  )
-  .join(" ")
-  .toLowerCase()
-  .replace(/[^\w\s]/g, " ")
-  .replace(/_/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-  const candidateHeadline = (candidate.headline ?? "")
-  .toLowerCase()
-  .replace(/[^\w\s]/g, " ")
-  .replace(/_/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-  const candidateExperience = (candidate.experience ?? "")
-  .toLowerCase()
-  .replace(/[^\w\s]/g, " ")
-  .replace(/_/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-const candidateProjects = (candidate.projects ?? "")
-  .toLowerCase()
-  .replace(/[^\w\s]/g, " ")
-  .replace(/_/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-      const searchTerms = searchText
-  .split(/\s+/)
-  .filter((term) => term.length > 1);
-
-  const matchingSkillTerms = searchTerms.filter((term) =>
-  candidateSkills.includes(term)
-);
-
-const matchingHeadlineTerms = searchTerms.filter((term) =>
-  candidateHeadline.includes(term)
-);
-
-const matchingExperienceTerms = searchTerms.filter((term) =>
-  candidateExperience.includes(term)
-);
-
-const matchingProjectTerms = searchTerms.filter((term) =>
-  candidateProjects.includes(term)
-);
-
-const relevanceScore =
-  matchingSkillTerms.length * 4 +
-  matchingHeadlineTerms.length * 3 +
-  matchingExperienceTerms.length * 2 +
-  matchingProjectTerms.length;
-
-if (searchTerms.length === 0) {
-  return false;
-}
-
-      return relevanceScore > 0;
-    })
+  ? realCandidates.filter((candidate) =>
+      getCandidateMatchDetails(candidate, searchText).matches
+    )
   : [];
 
 
@@ -343,6 +338,15 @@ if (searchTerms.length === 0) {
             >
               Find candidates
             </button>
+
+            
+<p className="mt-3 text-sm leading-6 text-gray-500">
+  Matching is based on keywords, not AI semantic understanding.
+  Search terms are checked against candidate skills, headlines,
+  experience, and projects. A candidate appears when at least
+  one search term matches.
+</p>
+
           </form>
         </section>
 
@@ -420,6 +424,52 @@ if (searchTerms.length === 0) {
       {candidate.headline}
     </p>
   )}
+
+  
+{(() => {
+  const details = getCandidateMatchDetails(candidate, searchText);
+
+  const matchGroups = [
+    { label: "Skills", terms: details.matchingSkillTerms },
+    { label: "Headline", terms: details.matchingHeadlineTerms },
+    { label: "Experience", terms: details.matchingExperienceTerms },
+    { label: "Projects", terms: details.matchingProjectTerms },
+  ].filter((group) => group.terms.length > 0);
+
+  return (
+    <div className="mt-4 rounded-xl border border-gray-200 p-4">
+      <p className="text-sm font-semibold text-gray-900">
+        Why this candidate matched
+      </p>
+
+      <p className="mt-1 text-xs text-gray-500">
+        Keyword matches from your search. A term may match more than one field.
+      </p>
+
+      <div className="mt-3 space-y-3">
+        {matchGroups.map((group) => (
+          <div key={group.label}>
+            <p className="text-sm font-medium text-gray-700">
+              {group.label}
+            </p>
+
+            <div className="mt-1 flex flex-wrap gap-2">
+              {group.terms.map((term) => (
+                <span
+                  key={term}
+                  className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-800"
+                >
+                  {term}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+})()}
+
 </div>
 
 
