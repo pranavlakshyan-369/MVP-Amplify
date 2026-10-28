@@ -428,31 +428,50 @@ if (searchTerms.length === 0) {
                   </span>
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {candidate.skills.map((skill) => (
-                    <span
-                      key={skill}
-                      className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
+                
+{candidate.skills?.filter(
+  (skill) => typeof skill === "string" && skill.trim().length > 0
+).length > 0 && (
+  <div className="mt-5 flex flex-wrap gap-2">
+    {candidate.skills
+      .filter(
+        (skill) =>
+          typeof skill === "string" && skill.trim().length > 0
+      )
+      .map((skill) => (
+        <span
+          key={skill}
+          className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+        >
+          {skill.trim()}
+        </span>
+      ))}
+  </div>
+)}
+
 
                 
-<div className="mt-5">
-  <p className="text-sm font-semibold">Experience</p>
-  <p className="mt-2 text-sm leading-6 text-gray-600">
-    {candidate.experience || "No experience details provided yet."}
-  </p>
-</div>
 
-<div className="mt-5 rounded-2xl bg-[#f8f7f4] p-4">
-  <p className="text-sm font-semibold">Project evidence</p>
-  <p className="mt-2 text-sm leading-6 text-gray-600">
-    {candidate.projects || "No project details provided yet."}
-  </p>
-</div>
+{candidate.experience?.trim() && (
+  <div className="mt-5">
+    <p className="text-sm font-semibold">Experience</p>
+    <p className="mt-2 text-sm leading-6 text-gray-600">
+      {candidate.experience}
+    </p>
+  </div>
+)}
+
+
+
+{candidate.projects?.trim() && (
+  <div className="mt-5 rounded-2xl bg-[#f8f7f4] p-4">
+    <p className="text-sm font-semibold">Project evidence</p>
+    <p className="mt-2 text-sm leading-6 text-gray-600">
+      {candidate.projects}
+    </p>
+  </div>
+)}
+
 
               </article>
             ))}
