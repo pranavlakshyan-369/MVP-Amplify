@@ -127,28 +127,96 @@ useEffect(() => {
   const [submittedJobDescription, setSubmittedJobDescription] = useState("");
 
   
+
 const searchText = `${submittedJobTitle} ${submittedJobDescription}`
   .toLowerCase()
+  .replace(/[^\w\s]/g, " ")
+  .replace(/_/g, " ")
+  .replace(/\s+/g, " ")
   .trim();
+
 
 const matchingCandidates = searchText
   ? realCandidates.filter((candidate) => {
       const candidateText = [
-        candidate.full_name,
-        candidate.headline,
-        ...candidate.skills,
-        candidate.experience,
-        candidate.projects,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+  candidate.full_name,
+  candidate.headline,
+  ...(candidate.skills ?? []),
+  candidate.experience,
+  candidate.projects,
+]
+  .filter((value) => typeof value === "string" && value.trim().length > 0)
+  .join(" ")
+  .toLowerCase()
+  .replace(/[^\w\s]/g, " ")
+  .replace(/_/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+  const candidateSkills = (candidate.skills ?? [])
+  .filter(
+    (skill): skill is string =>
+      typeof skill === "string" && skill.trim().length > 0
+  )
+  .join(" ")
+  .toLowerCase()
+  .replace(/[^\w\s]/g, " ")
+  .replace(/_/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+  const candidateHeadline = (candidate.headline ?? "")
+  .toLowerCase()
+  .replace(/[^\w\s]/g, " ")
+  .replace(/_/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+  const candidateExperience = (candidate.experience ?? "")
+  .toLowerCase()
+  .replace(/[^\w\s]/g, " ")
+  .replace(/_/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const candidateProjects = (candidate.projects ?? "")
+  .toLowerCase()
+  .replace(/[^\w\s]/g, " ")
+  .replace(/_/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
 
       const searchTerms = searchText
-        .split(/\s+/)
-        .filter((term) => term.length > 1);
+  .split(/\s+/)
+  .filter((term) => term.length > 1);
 
-      return searchTerms.some((term) => candidateText.includes(term));
+  const matchingSkillTerms = searchTerms.filter((term) =>
+  candidateSkills.includes(term)
+);
+
+const matchingHeadlineTerms = searchTerms.filter((term) =>
+  candidateHeadline.includes(term)
+);
+
+const matchingExperienceTerms = searchTerms.filter((term) =>
+  candidateExperience.includes(term)
+);
+
+const matchingProjectTerms = searchTerms.filter((term) =>
+  candidateProjects.includes(term)
+);
+
+const relevanceScore =
+  matchingSkillTerms.length * 4 +
+  matchingHeadlineTerms.length * 3 +
+  matchingExperienceTerms.length * 2 +
+  matchingProjectTerms.length;
+
+if (searchTerms.length === 0) {
+  return false;
+}
+
+      return relevanceScore > 0;
     })
   : [];
 
@@ -304,11 +372,21 @@ const matchingCandidates = searchText
   )}
 
               
-<p className="mt-2 text-gray-600">
-  {searched
-    ? `${matchingCandidates.length} candidate(s) matched your search.`
-    : "Enter a job title or description to find matching candidates."}
-</p>
+
+
+{!candidatesLoading && !candidatesError && (
+  <p className="mt-2 text-gray-600">
+    {!searched
+      ? "Enter a job title or description to find matching candidates."
+      : !searchText
+        ? "Please enter a job title or description before searching."
+        : matchingCandidates.length === 0
+          ? "No candidates matched your search. Try different keywords or broaden your search criteria."
+          : `${matchingCandidates.length} candidate(s) matched your search.`}
+  </p>
+)}
+
+
 
             </div>
 
@@ -329,13 +407,21 @@ const matchingCandidates = searchText
                 className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-xl font-semibold">{candidate.full_name}</h3>
-                    <p className="mt-1 text-gray-600">{candidate.headline}</p>
-                    <p className="mt-1 text-sm text-gray-500">
-                    
-                    </p>
-                  </div>
+                  
+<div>
+  {candidate.full_name?.trim() && (
+    <h3 className="text-xl font-semibold">
+      {candidate.full_name}
+    </h3>
+  )}
+
+  {candidate.headline?.trim() && (
+    <p className="mt-1 text-gray-600">
+      {candidate.headline}
+    </p>
+  )}
+</div>
+
 
                   <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-900">
                     Sample profile
